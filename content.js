@@ -68,7 +68,7 @@ chrome.runtime.onMessage.addListener((message, _, reply) => {
       reply(document.querySelector('script[type="application/ld+json"]')?.textContent);
     }
   } catch ({ message }) {
-    chrome.runtime.sendMessage({ message });
+    chrome.runtime.sendMessage({ message }).catch(() => {});
   }
 });
 
@@ -95,7 +95,7 @@ async function listTools(fromOrigins) {
     });
   }
   console.debug(`[WebMCP] Got ${tools.length} tools`, tools);
-  chrome.runtime.sendMessage({ tools, url: window.location.href });
+  chrome.runtime.sendMessage({ tools, url: window.location.href }).catch(() => {});
 }
 
 async function getFrameId(targetWindow) {
