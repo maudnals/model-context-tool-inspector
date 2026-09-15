@@ -1,4 +1,6 @@
-# WebMCP - Model Context Tool Inspector
+# WebMCP security demo extension
+
+Originally a fork of WebMCP Model Context Tool Inspector.
 
 A Chrome Extension that allows developers to inspect, monitor, and execute WebMCP tools manually or with Gemini.
 
