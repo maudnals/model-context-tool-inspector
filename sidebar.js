@@ -7,11 +7,10 @@ import { GoogleGenAI } from './js-genai.js';
 import { getAllFrameOrigins } from './utils.js';
 
 const statusDiv = document.getElementById('status');
-const tbody = document.getElementById('tableBody');
-const thead = document.getElementById('tableHeaderRow');
-const copyToClipboard = document.getElementById('copyToClipboard');
-const copyAsScriptToolConfig = document.getElementById('copyAsScriptToolConfig');
-const copyAsJSON = document.getElementById('copyAsJSON');
+const toolsList = document.getElementById('toolsList');
+// const copyToClipboard = document.getElementById('copyToClipboard');
+// const copyAsScriptToolConfig = document.getElementById('copyAsScriptToolConfig');
+// const copyAsJSON = document.getElementById('copyAsJSON');
 // const toolNames = document.getElementById('toolNames');
 // const inputArgsText = document.getElementById('inputArgsText');
 // const executeBtn = document.getElementById('executeBtn');
@@ -46,7 +45,7 @@ const suggestUserPromptCheckbox = document.getElementById('suggestUserPromptChec
     statusDiv.textContent =
       'Cannot inspect WebMCP tools on this page (restricted URL such as chrome://). Navigate to a regular web page.';
     statusDiv.hidden = false;
-    copyToClipboard.hidden = true;
+    // copyToClipboard.hidden = true;
   }
 })();
 
@@ -64,8 +63,7 @@ chrome.runtime.onMessage.addListener(async ({ message, tools, url, type }, sende
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
   if (sender.tab && sender.tab.id !== tab.id) return;
 
-  tbody.innerHTML = '';
-  thead.innerHTML = '';
+  toolsList.innerHTML = '';
   // toolNames.innerHTML = '';
 
   statusDiv.textContent = message;
@@ -76,70 +74,103 @@ chrome.runtime.onMessage.addListener(async ({ message, tools, url, type }, sende
   currentTools = tools;
 
   if (!tools || tools.length === 0) {
-    const row = document.createElement('tr');
-    row.innerHTML = `<td colspan="100%"><i>No tools registered yet in ${url || tab.url}</i></td>`;
-    tbody.appendChild(row);
+    const emptyDiv = document.createElement('div');
+    emptyDiv.className = 'empty-tools';
+    emptyDiv.innerHTML = `<i>No tools registered yet in ${url || tab.url}</i>`;
+    toolsList.appendChild(emptyDiv);
     // inputArgsText.value = '';
     // inputArgsText.disabled = true;
     // toolNames.disabled = true;
     // executeBtn.disabled = true;
-    copyToClipboard.hidden = true;
+    // copyToClipboard.hidden = true;
     return;
   }
 
   // inputArgsText.disabled = false;
   // toolNames.disabled = false;
   // executeBtn.disabled = false;
-  copyToClipboard.hidden = false;
-
-  const KEYS = [
-    'description',
-    'inputSchema',
-    'readOnlyHint',
-    'untrustedContentHint',
-    'consequentialHint',
-    'name',
-  ];
-  const keys = KEYS.filter((key) => tools.some((tool) => key in tool));
-  keys.forEach((key) => {
-    const th = document.createElement('th');
-    th.textContent = key;
-    thead.appendChild(th);
-  });
+  // copyToClipboard.hidden = false;
 
   tools.forEach((item) => {
-    const row = document.createElement('tr');
-    keys.forEach((key) => {
-      const td = document.createElement('td');
-      const pre = document.createElement('pre');
-      try {
-        pre.textContent = JSON.stringify(JSON.parse(item[key]), '', '  ');
-        td.appendChild(pre);
-      } catch (error) {
-        td.textContent = item[key];
-      }
-      row.appendChild(td);
-    });
-    tbody.appendChild(row);
+    const itemDiv = document.createElement('div');
+    itemDiv.className = 'tool-item';
 
-    /* Manual tool calling dropdown option creation commented out
-    const option = document.createElement('option');
-    option.textContent = `"${item.name}"${item.frameId !== 0 ? ` (${item.frameId})` : ''}`;
-    option.value = item.name;
-    option.dataset.inputSchema = item.inputSchema || '{}';
-    option.dataset.frameId = item.frameId;
-    toolNames.appendChild(option);
-    */
+    // Line 1: <toolname> + <hint1> <hint2> on the same row when possible
+    const headerDiv = document.createElement('div');
+    headerDiv.className = 'tool-item-header';
+    const nameEl = document.createElement('strong');
+    nameEl.className = 'tool-item-name';
+    nameEl.textContent = item.name;
+    headerDiv.appendChild(nameEl);
+
+    const activeHints = [
+      item.readOnlyHint ? 'readOnlyHint' : null,
+      item.untrustedContentHint ? 'untrustedContentHint' : null,
+      item.consequentialHint ? 'consequentialHint' : null,
+    ].filter(Boolean);
+    if (activeHints.length > 0) {
+      const hintsSpan = document.createElement('span');
+      hintsSpan.className = 'tool-item-hints';
+      activeHints.forEach((hint) => {
+        const badge = document.createElement('span');
+        badge.className = `tool-hint-badge ${hint}`;
+        badge.textContent = hint;
+        hintsSpan.appendChild(badge);
+      });
+      headerDiv.appendChild(hintsSpan);
+    }
+    itemDiv.appendChild(headerDiv);
+
+    // Line 3: <button: Description> <button: Input schema>
+    const actionsDiv = document.createElement('div');
+    actionsDiv.className = 'tool-item-actions';
+
+    const descBtn = document.createElement('button');
+    descBtn.className = 'schema-toggle-btn';
+    descBtn.textContent = 'Description';
+
+    const descDiv = document.createElement('div');
+    descDiv.className = 'tool-desc-box';
+    descDiv.hidden = true;
+    descDiv.textContent = item.description || 'No description provided.';
+
+    descBtn.onclick = () => {
+      descDiv.hidden = !descDiv.hidden;
+      descBtn.textContent = descDiv.hidden ? 'Description' : 'Hide description';
+    };
+
+    const schemaBtn = document.createElement('button');
+    schemaBtn.className = 'schema-toggle-btn';
+    schemaBtn.textContent = 'Input schema';
+
+    const schemaPre = document.createElement('pre');
+    schemaPre.className = 'tool-schema-pre';
+    schemaPre.hidden = true;
+    try {
+      schemaPre.textContent = JSON.stringify(JSON.parse(item.inputSchema || '{}'), null, 2);
+    } catch {
+      schemaPre.textContent = item.inputSchema || '{}';
+    }
+
+    schemaBtn.onclick = () => {
+      schemaPre.hidden = !schemaPre.hidden;
+      schemaBtn.textContent = schemaPre.hidden ? 'Input schema' : 'Hide input schema';
+    };
+
+    actionsDiv.appendChild(descBtn);
+    actionsDiv.appendChild(schemaBtn);
+    itemDiv.appendChild(actionsDiv);
+    itemDiv.appendChild(descDiv);
+    itemDiv.appendChild(schemaPre);
+
+    toolsList.appendChild(itemDiv);
   });
   // updateDefaultValueForInputArgs();
 
   if (haveNewTools) suggestUserPrompt();
 });
 
-tbody.ondblclick = () => {
-  tbody.classList.toggle('prettify');
-};
-
+/*
 copyAsScriptToolConfig.onclick = async () => {
   const text = currentTools
     .map((tool) => {
@@ -166,6 +197,7 @@ copyAsJSON.onclick = async () => {
   });
   await navigator.clipboard.writeText(JSON.stringify(tools, '', '  '));
 };
+*/
 
 // Interact with the page
 
@@ -591,6 +623,7 @@ function waitForPageLoad(tabId) {
   });
 }
 
+/*
 document.querySelectorAll('.collapsible-header').forEach((header) => {
   header.addEventListener('click', () => {
     header.classList.toggle('collapsed');
@@ -600,3 +633,4 @@ document.querySelectorAll('.collapsible-header').forEach((header) => {
     }
   });
 });
+*/
