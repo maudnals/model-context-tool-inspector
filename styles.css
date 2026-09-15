@@ -4,7 +4,7 @@
  */
 
 body {
-  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  font-family: system-ui, sans-serif;
   padding: 10px;
   background-color: #f9f9f9;
   color: #333;
@@ -13,6 +13,17 @@ body {
 h2 {
   margin-top: 0;
   font-size: 1.125rem;
+}
+
+.warning-banner {
+  background-color: #fef3c7;
+  border: 1px solid #f59e0b;
+  color: #92400e;
+  padding: 10px 12px;
+  border-radius: 6px;
+  margin-bottom: 12px;
+  font-size: 0.875rem;
+  line-height: 1.4;
 }
 
 button {
