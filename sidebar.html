@@ -34,6 +34,10 @@
       <h2 class="collapsible-header">Interact with the Page</h2>
       <div class="section-content">
 
+      <div id="apiKeyWarning" class="warning-banner" hidden>
+        ⚠️ Gemini API key is missing. Click <b>Set Gemini API key</b> below to use Gemini mode.
+      </div>
+
       <div class="form-group">
         <div class="label-with-button">
           <label for="userPromptText">User Prompt</label>
@@ -80,6 +84,7 @@
 
       <pre id="promptResults"></pre>
 
+      <!-- Manual tool calling UI commented out (Gemini mode only)
       <div class="form-group">
         <label for="toolNames">Tool</label>
         <select id="toolNames"></select>
@@ -95,6 +100,7 @@
       </div>
 
       <pre id="toolResults"></pre>
+      -->
       </div>
     </div>
     <script type="module" src="sidebar.js"></script>

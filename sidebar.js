@@ -12,10 +12,11 @@ const thead = document.getElementById('tableHeaderRow');
 const copyToClipboard = document.getElementById('copyToClipboard');
 const copyAsScriptToolConfig = document.getElementById('copyAsScriptToolConfig');
 const copyAsJSON = document.getElementById('copyAsJSON');
-const toolNames = document.getElementById('toolNames');
-const inputArgsText = document.getElementById('inputArgsText');
-const executeBtn = document.getElementById('executeBtn');
-const toolResults = document.getElementById('toolResults');
+// const toolNames = document.getElementById('toolNames');
+// const inputArgsText = document.getElementById('inputArgsText');
+// const executeBtn = document.getElementById('executeBtn');
+// const toolResults = document.getElementById('toolResults');
+const apiKeyWarning = document.getElementById('apiKeyWarning');
 const userPromptText = document.getElementById('userPromptText');
 const promptBtn = document.getElementById('promptBtn');
 const traceBtn = document.getElementById('traceBtn');
@@ -30,10 +31,20 @@ const suggestUserPromptCheckbox = document.getElementById('suggestUserPromptChec
   try {
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
     const fromOrigins = await getAllFrameOrigins(tab.id);
-    await chrome.tabs.sendMessage(tab.id, { action: 'LIST_TOOLS', fromOrigins }, { frameId: 0 });
+    try {
+      await chrome.tabs.sendMessage(tab.id, { action: 'LIST_TOOLS', fromOrigins }, { frameId: 0 });
+    } catch {
+      // Content script may not be injected yet if extension was just reloaded; try injecting it.
+      await chrome.scripting.executeScript({
+        target: { tabId: tab.id, allFrames: true },
+        files: ['content.js'],
+      });
+      await chrome.tabs.sendMessage(tab.id, { action: 'LIST_TOOLS', fromOrigins }, { frameId: 0 });
+    }
   } catch (error) {
     const statusDiv = document.getElementById('status');
-    statusDiv.textContent = error;
+    statusDiv.textContent =
+      'Cannot inspect WebMCP tools on this page (restricted URL such as chrome://). Navigate to a regular web page.';
     statusDiv.hidden = false;
     copyToClipboard.hidden = true;
   }
@@ -55,7 +66,7 @@ chrome.runtime.onMessage.addListener(async ({ message, tools, url, type }, sende
 
   tbody.innerHTML = '';
   thead.innerHTML = '';
-  toolNames.innerHTML = '';
+  // toolNames.innerHTML = '';
 
   statusDiv.textContent = message;
   statusDiv.hidden = !message;
@@ -68,17 +79,17 @@ chrome.runtime.onMessage.addListener(async ({ message, tools, url, type }, sende
     const row = document.createElement('tr');
     row.innerHTML = `<td colspan="100%"><i>No tools registered yet in ${url || tab.url}</i></td>`;
     tbody.appendChild(row);
-    inputArgsText.value = '';
-    inputArgsText.disabled = true;
-    toolNames.disabled = true;
-    executeBtn.disabled = true;
+    // inputArgsText.value = '';
+    // inputArgsText.disabled = true;
+    // toolNames.disabled = true;
+    // executeBtn.disabled = true;
     copyToClipboard.hidden = true;
     return;
   }
 
-  inputArgsText.disabled = false;
-  toolNames.disabled = false;
-  executeBtn.disabled = false;
+  // inputArgsText.disabled = false;
+  // toolNames.disabled = false;
+  // executeBtn.disabled = false;
   copyToClipboard.hidden = false;
 
   const KEYS = [
@@ -111,14 +122,16 @@ chrome.runtime.onMessage.addListener(async ({ message, tools, url, type }, sende
     });
     tbody.appendChild(row);
 
+    /* Manual tool calling dropdown option creation commented out
     const option = document.createElement('option');
     option.textContent = `"${item.name}"${item.frameId !== 0 ? ` (${item.frameId})` : ''}`;
     option.value = item.name;
     option.dataset.inputSchema = item.inputSchema || '{}';
     option.dataset.frameId = item.frameId;
     toolNames.appendChild(option);
+    */
   });
-  updateDefaultValueForInputArgs();
+  // updateDefaultValueForInputArgs();
 
   if (haveNewTools) suggestUserPrompt();
 });
@@ -172,10 +185,12 @@ async function initGenAI() {
     localStorage.model = 'gemini-3.1-flash-lite';
   }
   localStorage.model ??= env?.model || 'gemini-3.6-flash';
-  genAI = localStorage.apiKey ? new GoogleGenAI({ apiKey: localStorage.apiKey }) : undefined;
-  promptBtn.disabled = !localStorage.apiKey;
-  resetBtn.disabled = !localStorage.apiKey;
-  apiKeyBtn.textContent = localStorage.apiKey ? 'Update Gemini API key' : 'Set Gemini API key';
+  const hasApiKey = Boolean(localStorage.apiKey && localStorage.apiKey.trim());
+  genAI = hasApiKey ? new GoogleGenAI({ apiKey: localStorage.apiKey }) : undefined;
+  promptBtn.disabled = !hasApiKey;
+  resetBtn.disabled = !hasApiKey;
+  apiKeyBtn.textContent = hasApiKey ? 'Update Gemini API key' : 'Set Gemini API key';
+  if (apiKeyWarning) apiKeyWarning.hidden = hasApiKey;
 
   suggestUserPromptCheckbox.checked = localStorage.suggestUserPrompt !== 'false';
 }
@@ -320,6 +335,7 @@ traceBtn.onclick = async () => {
   await navigator.clipboard.writeText(text);
 };
 
+/* Manual tool calling handlers commented out (Gemini mode only)
 executeBtn.onclick = async () => {
   toolResults.textContent = '';
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
@@ -330,6 +346,7 @@ executeBtn.onclick = async () => {
     (error) => `⚠️ Error: "${error}"`,
   );
 };
+*/
 
 async function executeTool(tabId, name, inputArgs, frameId) {
   let toolsReady;
@@ -391,6 +408,7 @@ async function executeTool(tabId, name, inputArgs, frameId) {
   }
 }
 
+/* Manual tool calling input schema template helpers commented out
 toolNames.onchange = updateDefaultValueForInputArgs;
 
 function updateDefaultValueForInputArgs() {
@@ -398,6 +416,7 @@ function updateDefaultValueForInputArgs() {
   const template = generateTemplateFromSchema(JSON.parse(inputSchema));
   inputArgsText.value = JSON.stringify(template, '', ' ');
 }
+*/
 
 // Utils
 
@@ -438,6 +457,7 @@ function getConfig() {
   return { systemInstruction, tools: [{ functionDeclarations }] };
 }
 
+/*
 function generateTemplateFromSchema(schema) {
   if (!schema || typeof schema !== 'object') {
     return null;
@@ -546,6 +566,7 @@ function generateTemplateFromSchema(schema) {
       return {};
   }
 }
+*/
 
 function waitForPageLoad(tabId) {
   return new Promise((resolve) => {
