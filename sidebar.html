@@ -89,6 +89,27 @@
         <h2>Developer view</h2>
         <div class="section-content">
 
+          <div class="security-mode-section">
+            <h3>🛡️ Agent security mode</h3>
+            <div class="security-toggle-group" role="radiogroup" aria-label="Agent security mode">
+              <label class="security-toggle-option">
+                <input type="radio" name="agentSecurityMode" value="hardened" checked>
+                <span class="security-toggle-pill hardened-pill">
+                  🔒 Hardened
+                </span>
+              </label>
+              <label class="security-toggle-option">
+                <input type="radio" name="agentSecurityMode" value="unsafe">
+                <span class="security-toggle-pill unsafe-pill">
+                  ⚠️ Unsafe
+                </span>
+              </label>
+            </div>
+            <div id="securityModeDescription" class="security-mode-desc">
+              Enforces agent security checks and guardrails during tool execution.
+            </div>
+          </div>
+
           <div id="status"></div>
 
           <h3>🛠️ WebMCP tools detected on the page</h3>
@@ -104,6 +125,26 @@
         </div>
       </div>
     </div>
+
+    <dialog id="securityConfirmDialog" class="confirm-dialog">
+      <div class="confirm-dialog-header">
+        <span id="securityDialogTitle">⚠️ Security Confirmation Required</span>
+      </div>
+      <div class="confirm-dialog-body">
+        <p id="securityDialogReason" class="confirm-dialog-lead"></p>
+        <div class="confirm-tool-card">
+          <div class="confirm-tool-name" id="confirmToolName"></div>
+          <div class="confirm-tool-desc" id="confirmToolDesc"></div>
+          <div class="confirm-tool-args-label">Arguments:</div>
+          <pre class="confirm-tool-args" id="confirmToolArgs"></pre>
+        </div>
+      </div>
+      <div class="confirm-dialog-actions">
+        <button id="confirmDenyBtn" class="secondary" type="button">Deny</button>
+        <button id="confirmAllowBtn" class="danger-btn" type="button">Allow execution</button>
+      </div>
+    </dialog>
+
     <script type="module" src="sidebar.js"></script>
   </body>
 </html>

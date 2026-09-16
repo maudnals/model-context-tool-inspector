@@ -24,6 +24,154 @@ const apiKeyBtn = document.getElementById('apiKeyBtn');
 const promptResults = document.getElementById('promptResults');
 const advancedSection = document.getElementById('advancedSection');
 const suggestUserPromptCheckbox = document.getElementById('suggestUserPromptCheckbox');
+const securityModeDescription = document.getElementById('securityModeDescription');
+const securityConfirmDialog = document.getElementById('securityConfirmDialog');
+const securityDialogTitle = document.getElementById('securityDialogTitle');
+const securityDialogReason = document.getElementById('securityDialogReason');
+const confirmToolName = document.getElementById('confirmToolName');
+const confirmToolDesc = document.getElementById('confirmToolDesc');
+const confirmToolArgs = document.getElementById('confirmToolArgs');
+const confirmAllowBtn = document.getElementById('confirmAllowBtn');
+const confirmDenyBtn = document.getElementById('confirmDenyBtn');
+
+function getAgentSecurityMode() {
+  return localStorage.agentSecurityMode || 'hardened';
+}
+
+function updateSecurityModeUI(mode) {
+  const radio = document.querySelector(`input[name="agentSecurityMode"][value="${mode}"]`);
+  if (radio) radio.checked = true;
+  if (securityModeDescription) {
+    if (mode === 'hardened') {
+      securityModeDescription.innerHTML =
+        'Enforces agent security checks and guardrails during tool execution.';
+    } else {
+      securityModeDescription.innerHTML =
+        'Bypasses agent security checks; executes tool calls automatically without guardrails.';
+    }
+  }
+}
+
+updateSecurityModeUI(getAgentSecurityMode());
+
+document.querySelectorAll('input[name="agentSecurityMode"]').forEach((input) => {
+  input.addEventListener('change', (e) => {
+    const mode = e.target.value;
+    localStorage.agentSecurityMode = mode;
+    updateSecurityModeUI(mode);
+  });
+});
+
+function requestSecurityConfirmation({ title, reasonHtml, name, inputArgs, toolMeta }) {
+  return new Promise((resolve) => {
+    if (securityDialogTitle) {
+      securityDialogTitle.textContent = title || '⚠️ Security Confirmation Required';
+    }
+    if (securityDialogReason) {
+      securityDialogReason.innerHTML =
+        reasonHtml || 'The AI agent is requesting permission to execute this tool:';
+    }
+    confirmToolName.textContent = name;
+    confirmToolDesc.textContent = toolMeta?.description || '';
+    try {
+      confirmToolArgs.textContent = JSON.stringify(JSON.parse(inputArgs || '{}'), null, 2);
+    } catch {
+      confirmToolArgs.textContent = inputArgs || '{}';
+    }
+
+    const cleanup = () => {
+      confirmAllowBtn.removeEventListener('click', onAllow);
+      confirmDenyBtn.removeEventListener('click', onDeny);
+      securityConfirmDialog.removeEventListener('cancel', onDeny);
+    };
+
+    const onAllow = () => {
+      cleanup();
+      securityConfirmDialog.close();
+      resolve(true);
+    };
+
+    const onDeny = () => {
+      cleanup();
+      if (securityConfirmDialog.open) {
+        securityConfirmDialog.close();
+      }
+      resolve(false);
+    };
+
+    confirmAllowBtn.addEventListener('click', onAllow);
+    confirmDenyBtn.addEventListener('click', onDeny);
+    securityConfirmDialog.addEventListener('cancel', onDeny);
+    securityConfirmDialog.showModal();
+  });
+}
+
+/**
+ * Registry of security policies evaluated in Hardened mode before tool execution.
+ * Each policy receives `{ name, args, inputArgs, frameId, toolMeta, tab }` and returns:
+ * - `{ action: 'allow' }`
+ * - `{ action: 'confirm', title, reasonHtml }`
+ * - `{ action: 'block', reason }`
+ */
+const SECURITY_POLICIES = [
+  {
+    id: 'consequentialHintCheck',
+    evaluate({ toolMeta }) {
+      if (toolMeta?.consequentialHint) {
+        return {
+          action: 'confirm',
+          title: '⚠️ Confirm action',
+          reasonHtml:
+            'This tool is marked with <span class="tool-hint-badge consequentialHint">consequentialHint</span> and may have real-world or state-modifying effects:',
+        };
+      }
+      return { action: 'allow' };
+    },
+  },
+  // Additional hardened mode policies (e.g. untrustedContentHint, origin validation, parameter sanitization) can be registered here.
+];
+
+async function evaluateSecurityPolicies(context) {
+  if (getAgentSecurityMode() !== 'hardened') {
+    return { allowed: true };
+  }
+
+  for (const policy of SECURITY_POLICIES) {
+    const decision = await policy.evaluate(context);
+    if (!decision || decision.action === 'allow') continue;
+
+    if (decision.action === 'block') {
+      logPrompt(`🛑 Hardened agent mode [${policy.id}]: Blocked "${context.name}" — ${decision.reason}`);
+      return {
+        allowed: false,
+        error: `Blocked by agent security policy (${policy.id}): ${decision.reason}`,
+      };
+    }
+
+    if (decision.action === 'confirm') {
+      logPrompt(
+        `🔒 Hardened agent mode [${policy.id}]: Requesting user confirmation for "${context.name}"...`,
+      );
+      const approved = await requestSecurityConfirmation({
+        title: decision.title,
+        reasonHtml: decision.reasonHtml,
+        name: context.name,
+        inputArgs: context.inputArgs,
+        toolMeta: context.toolMeta,
+      });
+      if (!approved) {
+        logPrompt(`🛑 Tool call "${context.name}" denied by user.`);
+        return {
+          allowed: false,
+          error: `User denied execution of tool "${context.name}" (${policy.id}).`,
+        };
+      }
+      logPrompt(`✅ User confirmed execution of tool "${context.name}".`);
+    }
+  }
+
+  return { allowed: true };
+}
 
 // First, request list of tools from content script living in top-level frame.
 (async () => {
@@ -208,7 +356,7 @@ async function initGenAI() {
   try {
     // Try load .env.json if present.
     env = (await import('./.env.json', { with: { type: 'json' } })).default;
-  } catch {}
+  } catch { }
   if (env?.apiKey) localStorage.apiKey ??= env.apiKey;
   if (localStorage.model === 'gemini-2.5-flash') {
     localStorage.model = 'gemini-3-flash-preview';
@@ -326,6 +474,30 @@ async function promptAI() {
         frameId = parseInt(frameId);
         const inputArgs = JSON.stringify(args);
         logPrompt(`AI calling tool "${name}" with ${inputArgs}`);
+
+        const toolMeta =
+          (currentTools || []).find(
+            (t) => t.name === name && (t.frameId === undefined || t.frameId === frameId),
+          ) || (currentTools || []).find((t) => t.name === name);
+
+        const securityCheck = await evaluateSecurityPolicies({
+          name,
+          args,
+          inputArgs,
+          frameId,
+          toolMeta,
+          tab,
+        });
+        if (!securityCheck.allowed) {
+          toolResponses.push({
+            functionResponse: {
+              name: toolName,
+              response: { error: securityCheck.error },
+            },
+          });
+          continue;
+        }
+
         try {
           const result = await executeTool(tab.id, name, inputArgs, frameId);
           toolResponses.push({ functionResponse: { name: toolName, response: { result } } });
