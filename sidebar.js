@@ -122,7 +122,7 @@ const SECURITY_POLICIES = [
           action: 'confirm',
           title: '⚠️ Confirm action',
           reasonHtml:
-            'This tool is marked with <span class="tool-hint-badge consequentialHint">consequentialHint</span> and may have real-world or state-modifying effects:',
+            'This tool is marked with <span class="tool-hint-badge consequentialHint">consequentialHint</span> and may have significant real-world effects:',
         };
       }
       return { action: 'allow' };
@@ -274,7 +274,7 @@ chrome.runtime.onMessage.addListener(async ({ message, tools, url, type }, sende
     actionsDiv.className = 'tool-item-actions';
 
     const descBtn = document.createElement('button');
-    descBtn.className = 'schema-toggle-btn';
+    descBtn.className = 'tertiary';
     descBtn.textContent = 'Description';
 
     const descDiv = document.createElement('div');
@@ -288,7 +288,7 @@ chrome.runtime.onMessage.addListener(async ({ message, tools, url, type }, sende
     };
 
     const schemaBtn = document.createElement('button');
-    schemaBtn.className = 'schema-toggle-btn';
+    schemaBtn.className = 'tertiary';
     schemaBtn.textContent = 'Input schema';
 
     const schemaPre = document.createElement('pre');

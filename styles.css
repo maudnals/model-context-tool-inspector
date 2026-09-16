@@ -156,6 +156,14 @@ tr:nth-child(even) {
 
 .form-group {
   margin-bottom: 10px;
+  &.prompt-actions {
+    display: flex;
+    flex-direction: row-reverse;
+  }
+}
+
+#resetBtn {
+  margin-right: 8px;
 }
 
 .label-with-button {
@@ -569,8 +577,15 @@ dialog::backdrop {
   gap: 8px;
 }
 
-.schema-toggle-btn,
-.schema-toggle-btn:hover {
+.top-utility-bar {
+  display: flex;
+  justify-content: flex-end;
+  gap: 14px;
+  margin-bottom: 10px;
+}
+
+.tertiary,
+.tertiary:hover {
   background: transparent;
   border: none;
   outline: none;

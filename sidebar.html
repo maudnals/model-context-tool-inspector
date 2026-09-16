@@ -15,8 +15,13 @@
       <div class="interaction-view">
         <div class="section-content">
 
+          <div class="top-utility-bar">
+            <button id="apiKeyBtn" class="tertiary">Set Gemini API key</button>
+            <button id="traceBtn" class="tertiary">Copy trace</button>
+          </div>
+
           <div id="apiKeyWarning" class="warning-banner" hidden>
-            ⚠️ Gemini API key is missing. Click <b>Set Gemini API key</b> below to use Gemini mode.
+            ⚠️ Gemini API key is missing. Click <b>Set Gemini API key</b> above to use Gemini mode.
           </div>
 
           <div class="form-group">
@@ -56,11 +61,9 @@
             </label>
           </dialog>
 
-          <div class="form-group">
+          <div class="form-group prompt-actions">
             <button id="promptBtn" disabled>Send</button>
-            <button id="resetBtn" class="secondary" disabled>Reset</button>
-            <button id="apiKeyBtn" class="secondary">Set Gemini API key</button>
-            <button id="traceBtn" class="secondary">Copy trace</button>
+            <button id="resetBtn" class="tertiary" disabled>Reset</button>
           </div>
 
           <pre id="promptResults"></pre>
